@@ -1,4 +1,9 @@
-requests
-colorama
-termcolor
+import telebot
 
+TOKEN = '8258750274:AAE22nCFYF8baPrsIEyNTfGJtycCMf5m4dI'
+CHAT_ID = 6934555622  # Admin ID
+
+bot = telebot.TeleBot(TOKEN)
+
+bot.send_message(CHAT_ID, "📤 [NEXORA VIP] Termux'tan bir kullanıcı bilgi gönderdi!")
+print("✅ Mesaj Telegram'a gönderildi.")
