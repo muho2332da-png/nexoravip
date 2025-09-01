@@ -1,0 +1,19 @@
+# Nexora VIP
+
+Nexora VIP, Android Termux için geliştirilmiş özel bir script ve araçtır.  
+Pakundo’nun tüm menü ve fonksiyonlarını içerir, sadece isim ve marka değiştirildi.
+
+## Kurulum (Termux)
+
+1. Termux’u açın ve aşağıdaki komutları çalıştırın:
+
+```bash
+pkg update -y && pkg upgrade -y
+pkg install git -y && pkg install python -y
+cd ~
+rm -rf NexoraVIP
+git clone https://github.com/<KULLANICI_ADINIZ>/NexoraVIP.git
+cd NexoraVIP
+pip install --upgrade pip
+pip install -r requirements.txt
+python NexoraVIP.py
