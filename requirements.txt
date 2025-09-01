@@ -7,3 +7,6 @@ bot = telebot.TeleBot(TOKEN)
 
 bot.send_message(CHAT_ID, "📤 [NEXORA VIP] Termux'tan bir kullanıcı bilgi gönderdi!")
 print("✅ Mesaj Telegram'a gönderildi.")
+git add .
+git commit -m "NEXORA VIP güncellemesi"
+git push
