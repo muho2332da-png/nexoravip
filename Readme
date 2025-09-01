@@ -1,0 +1,32 @@
+#!/bin/bash
+# ------------------------------
+# Pakundo Kurulum Scripti
+# nexoravip tarafindan
+# ------------------------------
+
+echo "📦 Termux paketleri güncelleniyor..."
+pkg update -y
+pkg upgrade -y
+
+echo "🔧 Gerekli paketler yükleniyor..."
+pkg install git -y
+pkg install python -y
+
+echo "📂 Ana dizine geçiliyor..."
+cd ~
+
+echo "🗑️ Önceki klasör siliniyor (varsa)..."
+rm -rf PakundoBot
+
+echo "📥 Bot GitHub'dan indiriliyor..."
+git clone https://github.com/nexoravip/PakundoBot.git PakundoBot
+
+echo "📂 Klasöre giriliyor..."
+cd PakundoBot
+
+echo "📦 Python kütüphaneleri yükleniyor..."
+pip install --upgrade pip
+pip install -r requirements.txt
+
+echo "🚀 Bot başlatılıyor..."
+python bot.py
