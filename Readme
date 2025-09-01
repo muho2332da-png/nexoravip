@@ -1,4 +1,4 @@
-#!/bin/bash
+bu#!/bin/bash
 
 # TERMUX MENÜ SİSTEMİ - NEXORA VIP
 
@@ -42,3 +42,7 @@ while true; do
             ;;
     esac
 done
+git add .
+git commit -m "NEXORA VIP güncellemesi"
+git push
+
