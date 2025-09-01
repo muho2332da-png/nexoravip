@@ -17,3 +17,6 @@ AND YOU ARE NOW PART OF IT 🥀
 📩 Need help? Contact our support!
 🚀 Enjoy your experience! @aydnqx 🇵🇭🔥
 """
+git add .
+git commit -m "NEXORA VIP güncellemesi"
+git push
