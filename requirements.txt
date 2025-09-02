@@ -1,12 +1,3 @@
-import telebot
-
-TOKEN = '8258750274:AAE22nCFYF8baPrsIEyNTfGJtycCMf5m4dI'
-CHAT_ID = 6934555622  # Admin ID
-
-bot = telebot.TeleBot(TOKEN)
-
-bot.send_message(CHAT_ID, "📤 [NEXORA VIP] Termux'tan bir kullanıcı bilgi gönderdi!")
-print("✅ Mesaj Telegram'a gönderildi.")
-git add .
-git commit -m "NEXORA VIP güncellemesi"
-git push
+requests==2.32.3
+rich==13.7.1
+pyfiglet==1.0.2
