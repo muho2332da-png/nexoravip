@@ -1,259 +1,68 @@
 # utils.py
-import subprocess
-import uuid
-import platform
-import requests
 import os
-import sys
+import time
+import uuid
+import hashlib
+import requests
 
-API_URL = os.environ.get("API_URL", "https://elsedev.squareweb.app")
-TIMEOUT = 20
+# Config: default değerler, değiştirilebilir
+API_BASE = os.environ.get("CPM_API_BASE", "https://example-cpm-api.local")
+TIMEOUT = 10
 
-CODES = {
-    101: "❌ Key Não Encontrada.",
-    102: "🚫 Usuário Banido.",
-    103: "🔒 Key Bloqueada.",
-    104: "⌛ Key Expirada.",
-    105: "⚠️ Formato Da Key Inválido.",
-    106: "🚫 Acesso Bloqueado Por Tentativas Excessivas.",
-    107: "📄 Fingerprint Incompleta.",
-    108: "🔍 Dispositivo Não Corresponde Ao Cadastrado.",
-    109: "🚫 Token Inválido.",
-    110: "❌ Email Incorreto.",
-    111: "❌ Senha Incorreta.",
-    500: "💥 Erro Interno No Servidor."
-}
+class APIClient:
+    def __init__(self, base_url=None, token=None):
+        self.base_url = base_url or API_BASE
+        self.token = token
 
+    def _headers(self):
+        h = {"User-Agent": "CPMTool/1.0"}
+        if self.token:
+            h["Authorization"] = f"Bearer {self.token}"
+        return h
 
-def _run_cmd(cmd: str):
+    def post(self, path, data=None, json=None):
+        url = f"{self.base_url.rstrip('/')}/{path.lstrip('/')}"
+        resp = requests.post(url, data=data, json=json, headers=self._headers(), timeout=TIMEOUT)
+        return resp
+
+    def get(self, path, params=None):
+        url = f"{self.base_url.rstrip('/')}/{path.lstrip('/')}"
+        resp = requests.get(url, params=params, headers=self._headers(), timeout=TIMEOUT)
+        return resp
+
+def generate_fingerprint():
+    """
+    Basit fingerprint: cihaz/bilgiye bağlı benzersiz ID.
+    Reelde daha sofistike olabilir; burada deterministic bir hash üretiyoruz.
+    """
+    # Kullanıcının makine UUID'si (yerel), zaman damgası + rastgele karışımı
+    node = uuid.getnode()
+    raw = f"{node}-{os.getpid()}-{time.time()}"
+    h = hashlib.sha256(raw.encode()).hexdigest()
+    # kısa versiyon
+    return h[:32]
+
+def verificar_key_com_fingerprint(api_client: APIClient, key: str, fingerprint: str):
+    """
+    Sunucuya key + fingerprint doğrulaması gönderir.
+    Eğer sunucuda uygun endpoint yoksa bunu sahte/mock olarak kullan.
+    """
     try:
-        return subprocess.check_output(cmd, shell=True).decode().strip()
-    except Exception:
-        return None
+        resp = api_client.post("/verify_key", json={"key": key, "fingerprint": fingerprint})
+        if resp.status_code == 200:
+            return resp.json()
+        return {"ok": False, "status_code": resp.status_code, "text": resp.text}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
 
-
-def get_android_prop(prop):
-    return _run_cmd(f"getprop {prop}")
-
-
-def detect_platform():
-    android_model = get_android_prop("ro.product.model")
-    if android_model:
-        return "android"
-
-    system = platform.system().lower()
-    if system == "windows":
-        return "windows"
-    elif system == "linux":
-        return "linux"
-    elif system == "darwin":
-        if sys.platform == "ios":
-            return "ios"
-        return "macos"
-    return "unknown"
-
-
-def get_machine_id():
-    plat = detect_platform()
-    if plat in ["android", "linux", "macos"]:
-        try:
-            with open("/etc/machine-id", "r") as f:
-                return f.read().strip()
-        except Exception:
-            return str(uuid.getnode())
-    elif plat == "windows":
-        out = _run_cmd("wmic csproduct get uuid")
-        if out:
-            lines = out.splitlines()
-            if len(lines) > 1:
-                return lines[1].strip()
-        return str(uuid.getnode())
-    return str(uuid.getnode())
-
-
-def get_os_version():
+def login(api_client: APIClient, username: str, password: str):
     try:
-        return platform.platform()
-    except Exception:
-        return None
-
-
-def get_public_ip():
-    try:
-        resp = requests.get("https://api.ipify.org?format=json", timeout=3)
-        return resp.json().get("ip")
-    except Exception:
-        return None
-
-
-def get_fingerprint():
-    plat = detect_platform()
-
-    if plat == "ios":
-        return {"error": "❌ Sistema IOS Detectado, Impossível Utilização."}
-
-    device_id = get_machine_id()
-    os_version = get_os_version()
-    model = platform.node()
-    manufacturer = "Desconhecido"
-
-    if plat == "android":
-        model = get_android_prop("ro.product.model")
-        manufacturer = get_android_prop("ro.product.manufacturer") or "Desconhecido"
-    elif plat == "windows":
-        manu_out = _run_cmd("wmic computersystem get manufacturer")
-        if manu_out:
-            lines = manu_out.splitlines()
-            if len(lines) > 1:
-                manufacturer = lines[1].strip()
-    elif plat == "linux":
-        sys_vendor_path = "/sys/devices/virtual/dmi/id/sys_vendor"
-        if os.path.exists(sys_vendor_path):
-            try:
-                with open(sys_vendor_path, "r") as f:
-                    manufacturer = f.read().strip()
-            except Exception:
-                pass
-    elif plat == "macos":
-        manufacturer = "Apple"
-
-    return {
-        "device_id": device_id,
-        "os_version": os_version,
-        "model": model,
-        "manufacturer": manufacturer,
-    }
-
-
-def _parse_api_error(data):
-    if not data:
-        return "❓ Resposta vazia da API."
-    if isinstance(data, dict) and "detail" in data:
-        detail = data["detail"]
-        if isinstance(detail, dict):
-            code = detail.get("code")
-            if code and code in CODES:
-                return CODES[code]
-            if detail.get("message"):
-                return f"❌ {detail.get('message')}"
-        elif isinstance(detail, str):
-            return f"❌ {detail}"
-    if isinstance(data, dict):
-        code = data.get("code")
-        if code and code in CODES:
-            return CODES[code]
-        if data.get("message"):
-            return f"❌ {data.get('message')}"
-    return f"❓ Erro não mapeado: {data}"
-
-
-def verificar_key_com_fingerprint(chave: str, api_url: str = None):
-    api = api_url or API_URL
-    fingerprint = get_fingerprint()
-    if "error" in fingerprint:
-        return {"status": "error", "message": fingerprint["error"]}
-
-    public_ip = get_public_ip()
-    headers = {
-        "Authorization": chave,
-        "Content-Type": "application/json"
-    }
-    if public_ip:
-        headers["X-Forwarded-For"] = public_ip
-
-    try:
-        resp = requests.post(f"{api}/key", json=fingerprint, headers=headers, timeout=TIMEOUT)
-    except requests.RequestException as e:
-        return {"status": "error", "message": f"🌐 Erro de conexão: {e}"}
-
-    try:
-        data = resp.json()
-    except ValueError:
-        return {"status": "error", "message": f"❌ Resposta inválida da API (status {resp.status_code})."}
-
-    if 200 <= resp.status_code < 300:
-        if data.get("success"):
-            return {
-                "status": "ok",
-                "message": "✅ Acesso Permitido.",
-                "id": data.get("id"),
-                "key": chave,
-                "valid_until": data.get("valid_until"),
-                "token": data.get("token"),
-                "raw": data
-            }
-        return {"status": "error", "message": _parse_api_error(data), "raw": data}
-
-    return {"status": "error", "message": _parse_api_error(data), "http_status": resp.status_code, "raw": data}
-
-
-def login(chave: str, email: str, password: str, token: str, api_url: str = None):
-    api = api_url or API_URL
-    fingerprint = get_fingerprint()
-    if "error" in fingerprint:
-        return {"status": "error", "message": fingerprint["error"]}
-
-    public_ip = get_public_ip()
-    payload = {
-        "email": email,
-        "password": password,
-        "token": token,
-        **fingerprint
-    }
-
-    headers = {
-        "Authorization": chave,
-        "Content-Type": "application/json"
-    }
-    if public_ip:
-        headers["X-Forwarded-For"] = public_ip
-
-    try:
-        resp = requests.post(f"{api}/login", json=payload, headers=headers, timeout=TIMEOUT)
-    except requests.RequestException as e:
-        return {"status": "error", "message": f"🌐 Erro de conexão: {e}"}
-
-    try:
-        data = resp.json()
-    except ValueError:
-        return {"status": "error", "message": f"❌ Resposta inválida da API (status {resp.status_code})."}
-
-    if 200 <= resp.status_code < 300:
-        return data
-
-    return {"status": "error", "message": _parse_api_error(data), "http_status": resp.status_code, "raw": data}
-
-
-def inject_account(chave: str, token: str, api_url: str = None):
-    api = api_url or API_URL
-    fingerprint = get_fingerprint()
-    if "error" in fingerprint:
-        return {"status": "error", "message": fingerprint["error"]}
-
-    public_ip = get_public_ip()
-    payload = {
-        "token": token,
-        **fingerprint
-    }
-
-    headers = {
-        "Authorization": chave,
-        "Content-Type": "application/json"
-    }
-    if public_ip:
-        headers["X-Forwarded-For"] = public_ip
-
-    try:
-        resp = requests.post(f"{api}/inject_account", json=payload, headers=headers, timeout=TIMEOUT)
-    except requests.RequestException as e:
-        return {"status": "error", "message": f"🌐 Erro de conexão: {e}"}
-
-    try:
-        data = resp.json()
-    except ValueError:
-        return {"status": "error", "message": f"❌ Resposta inválida da API (status {resp.status_code})."}
-
-    if 200 <= resp.status_code < 300:
-        return {"status_code": resp.status_code, **data}
-
-    return {"status": "error", "message": _parse_api_error(data), "http_status": resp.status_code, "raw": data}
+        resp = api_client.post("/auth/login", json={"username": username, "password": password})
+        if resp.status_code == 200:
+            data = resp.json()
+            token = data.get("token") or data.get("access_token")
+            api_client.token = token
+            return {"ok": True, "data": data}
+        return {"ok": False, "status_code": resp.status_code, "text": resp.text}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
