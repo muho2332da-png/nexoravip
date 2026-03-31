@@ -1,68 +1,10 @@
-# utils.py
-import os
-import time
-import uuid
-import hashlib
-import requests
-
-# Config: default değerler, değiştirilebilir
-API_BASE = os.environ.get("CPM_API_BASE", "https://example-cpm-api.local")
-TIMEOUT = 10
-
-class APIClient:
-    def __init__(self, base_url=None, token=None):
-        self.base_url = base_url or API_BASE
-        self.token = token
-
-    def _headers(self):
-        h = {"User-Agent": "CPMTool/1.0"}
-        if self.token:
-            h["Authorization"] = f"Bearer {self.token}"
-        return h
-
-    def post(self, path, data=None, json=None):
-        url = f"{self.base_url.rstrip('/')}/{path.lstrip('/')}"
-        resp = requests.post(url, data=data, json=json, headers=self._headers(), timeout=TIMEOUT)
-        return resp
-
-    def get(self, path, params=None):
-        url = f"{self.base_url.rstrip('/')}/{path.lstrip('/')}"
-        resp = requests.get(url, params=params, headers=self._headers(), timeout=TIMEOUT)
-        return resp
-
-def generate_fingerprint():
-    """
-    Basit fingerprint: cihaz/bilgiye bağlı benzersiz ID.
-    Reelde daha sofistike olabilir; burada deterministic bir hash üretiyoruz.
-    """
-    # Kullanıcının makine UUID'si (yerel), zaman damgası + rastgele karışımı
-    node = uuid.getnode()
-    raw = f"{node}-{os.getpid()}-{time.time()}"
-    h = hashlib.sha256(raw.encode()).hexdigest()
-    # kısa versiyon
-    return h[:32]
-
-def verificar_key_com_fingerprint(api_client: APIClient, key: str, fingerprint: str):
-    """
-    Sunucuya key + fingerprint doğrulaması gönderir.
-    Eğer sunucuda uygun endpoint yoksa bunu sahte/mock olarak kullan.
-    """
-    try:
-        resp = api_client.post("/verify_key", json={"key": key, "fingerprint": fingerprint})
-        if resp.status_code == 200:
-            return resp.json()
-        return {"ok": False, "status_code": resp.status_code, "text": resp.text}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
-
-def login(api_client: APIClient, username: str, password: str):
-    try:
-        resp = api_client.post("/auth/login", json={"username": username, "password": password})
-        if resp.status_code == 200:
-            data = resp.json()
-            token = data.get("token") or data.get("access_token")
-            api_client.token = token
-            return {"ok": True, "data": data}
-        return {"ok": False, "status_code": resp.status_code, "text": resp.text}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
+[
+  59, 133, 132, 13, 53, 99, 100, 102, 37, 21, 48, 77, 74, 2, 23, 51, 163, 186, 158, 55, 39, 181, 196, 160, 220, 197,
+  47, 66, 1, 106, 76, 0, 43, 152, 108, 82, 81, 146, 59, 147, 210, 148, 149, 49, 112, 29, 20, 88, 137, 139, 176, 180, 
+  179, 185, 54, 60, 85, 45, 190, 6, 57, 219, 209, 30, 56, 145, 214, 218, 213, 156, 11, 128, 177, 129, 131, 140, 187, 
+  184, 134, 89, 224, 12, 9, 31, 120, 4, 8, 62, 17, 59, 157, 113, 86, 217, 168, 200, 215, 5, 127, 117, 15, 35, 206, 3, 
+  28, 151, 226, 110, 87, 103, 19, 24, 116, 121, 123, 58, 22, 205, 109, 222, 138, 130, 70, 170, 171, 191, 195, 101, 7, 
+  118, 135, 211, 193, 150, 153, 104, 114, 105, 208, 154, 126, 189, 192, 212, 61, 107, 111, 221, 225, 223, 199, 40, 
+  166, 141, 14, 188, 136, 115, 10, 194, 172, 124, 169, 142, 161, 143, 144, 164, 41, 162, 201, 27, 178, 32, 216, 227, 
+  198, 202, 207, 155, 165, 182, 183
+]
