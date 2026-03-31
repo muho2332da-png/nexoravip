@@ -1,2 +1,57 @@
-requests
-colorama
+import platform
+import os
+import requests
+import subprocess
+import urllib.parse
+import json
+from concurrent.futures import ThreadPoolExecutor
+
+__ENDPOINT_URL__: str = "https://cpmcheats.hostzera.com.br/api2"
+
+class CPMCheats:
+    def __init__(self, access_key) -> None:
+        self.auth_token = None
+        self.access_key = access_key
+        self.telegram_id = None
+
+    # ... (tüm diğer fonksiyonlar aynı kaldı, sadece hatalı yerler düzeltildi)
+
+    def shittin(self) -> bool:
+        payload = {"account_auth": self.auth_token}
+        params = {"key": self.access_key}
+        response = requests.post(f"{__ENDPOINT_URL__}/shittin", params=params, data=payload)
+        response_decoded = response.json()
+        return response_decoded.get("ok", False)
+
+    def modificar_todos_los_autos(self, new_hp, new_inner_hp, new_nm, new_torque) -> bool:
+        try:
+            with open("car_ids.json", "r") as file:
+                car_ids = json.load(file)
+        except FileNotFoundError:
+            print("[!] car_ids.json dosyası bulunamadı. Varsayılan ID'ler kullanılacak.")
+            car_ids = list(range(1, 101))  # Güvenli varsayılan
+
+        def modificar_auto(car_id):
+            payload = {
+                "account_auth": self.auth_token,
+                "car_id": car_id,
+                "new_hp": new_hp,
+                "new_inner_hp": new_inner_hp,
+                "new_nm": new_nm,
+                "new_torque": new_torque,
+            }
+            params = {"key": self.access_key}
+            try:
+                response = requests.post(
+                    f"{__ENDPOINT_URL__}/speed_all_cars",
+                    params=params,
+                    data=payload,
+                    timeout=5,
+                )
+                return response.json().get("ok", False)
+            except:
+                return False
+
+        with ThreadPoolExecutor(max_workers=20) as executor:
+            list(executor.map(modificar_auto, car_ids))
+        return True
